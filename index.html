@@ -17,6 +17,23 @@
         font-family: sans-serif;
       }
 
+      /* --- NEW: Loading Screen Styles --- */
+      #loading-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(255, 255, 255, 0.95);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        font-size: 24px;
+        font-weight: bold;
+        color: #333;
+      }
+
       .svg-container {
         position: relative;
         width: 100vw;
@@ -27,8 +44,6 @@
         position: absolute;
         
         /* Size: Takes up ~40% of the screen */
-        /* Note: Using 'vmin' ensures it takes up 40% of the screen's smallest dimension 
-          so it doesn't get cut off on mobile. You can change this to 40vw if you strictly want width. */
         width: 90vmin; 
         height: auto;
 
@@ -55,16 +70,19 @@
         text-align: center;
       }
 
-      /*video {
+      video {
           display: none;
-      }*/
+      }
     </style>
 </head>
 <body>
 
+    <!-- NEW: Loading Screen Overlay -->
+    <div id="loading-screen">Loading (local) Face Tracking Models...</div>
+
     <div class="svg-container">
-      <!-- The SVG -->
-      <img class="my-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg", src="face.svg"></img>
+      <!-- The SVG (fixed a minor comma syntax issue here) -->
+      <img class="my-svg" src="face.svg" alt="face">
     </div>
     <!-- Hidden video element to capture webcam stream -->
     <video id="webcam" autoplay muted playsinline></video>
@@ -72,6 +90,7 @@
     <script>
         const svgElement = document.querySelector('.my-svg');
         const video = document.getElementById('webcam');
+        const loadingScreen = document.getElementById('loading-screen'); // Grab the loading screen
 
         // URL pointing to the pre-trained models hosted on jsDelivr 
         // Note: For production apps, download these weights and host them on your own server.
@@ -82,9 +101,12 @@
                 // Load the TinyFaceDetector (lightweight, fast, ideal for webcams)
                 await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
                 
+                // Models are loaded, now update text and request webcam
+                loadingScreen.innerText = "Starting webcam...";
                 startVideo();
             } catch (error) {
-                  1+1;
+                loadingScreen.innerText = "Error loading AI models.";
+                console.error(error);
             }
         }
 
@@ -94,13 +116,17 @@
                     video.srcObject = stream;
                 })
                 .catch(err => {
-                    1+1;
+                    loadingScreen.innerText = "Webcam access denied or unavailable.";
+                    console.error(err);
                 });
         }
 
         // Wait for the video to start playing before we begin detecting
         video.addEventListener('play', () => {
             
+            // NEW: Hide the loading screen now that everything is ready!
+            loadingScreen.style.display = 'none';
+
             // Set up a loop to detect faces roughly 10 times a second
             setInterval(async () => {
                 // Detect all faces in the current video frame
