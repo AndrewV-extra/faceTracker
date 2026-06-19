@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Tracking (Coordinates Only)</title>
+    <!-- Load face-api.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+    <style>
+      /* Reset margins to prevent scrolling issues */
+      body {
+        margin: 0;
+        height: 100vh;
+        overflow: hidden; /* Hides scrollbars if the SVG goes past the screen edges */
+        color: black;
+        font-family: sans-serif;
+      }
+
+      .svg-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      .my-svg {
+        position: absolute;
+        
+        /* Size: Takes up ~40% of the screen */
+        /* Note: Using 'vmin' ensures it takes up 40% of the screen's smallest dimension 
+          so it doesn't get cut off on mobile. You can change this to 40vw if you strictly want width. */
+        width: 90vmin; 
+        height: auto;
+
+        /* Center Vertically */
+        top: 50%;
+        
+        /* Default Horizontal Center */
+        left: 50%; 
+
+        /* Align the EXACT CENTER of the SVG to the top/left coordinates */
+        transform: translate(-50%, -50%);
+
+        /* Optional: Adds a smooth gliding animation when the JS updates the position */
+        transition: left 0.1s ease-out;
+      }
+
+      /* Styling for the demo slider */
+      .controls {
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10;
+        text-align: center;
+      }
+
+      /*video {
+          display: none;
+      }*/
+    </style>
+</head>
+<body>
+
+    <div class="svg-container">
+      <!-- The SVG -->
+      <img class="my-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg", src="face.svg"></img>
+    </div>
+    <!-- Hidden video element to capture webcam stream -->
+    <video id="webcam" autoplay muted playsinline></video>
+
+    <script>
+        const svgElement = document.querySelector('.my-svg');
+        const video = document.getElementById('webcam');
+
+        // URL pointing to the pre-trained models hosted on jsDelivr 
+        // Note: For production apps, download these weights and host them on your own server.
+        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+
+        async function init() {
+            try {
+                // Load the TinyFaceDetector (lightweight, fast, ideal for webcams)
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                
+                startVideo();
+            } catch (error) {
+                  1+1;
+            }
+        }
+
+        function startVideo() {
+            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                .then(stream => {
+                    video.srcObject = stream;
+                })
+                .catch(err => {
+                    1+1;
+                });
+        }
+
+        // Wait for the video to start playing before we begin detecting
+        video.addEventListener('play', () => {
+            
+            // Set up a loop to detect faces roughly 10 times a second
+            setInterval(async () => {
+                // Detect all faces in the current video frame
+                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
+
+                if (detections.length > 0) {
+                    // 1. Find the largest face by comparing bounding box areas
+                    let largestFace = detections[0];
+                    let maxArea = largestFace.box.width * largestFace.box.height;
+
+                    for (let i = 1; i < detections.length; i++) {
+                        const area = detections[i].box.width * detections[i].box.height;
+                        if (area > maxArea) {
+                            maxArea = area;
+                            largestFace = detections[i];
+                        }
+                    }
+
+                    // 2. Calculate the center point of the largest face's bounding box
+                    const box = largestFace.box;
+                    const centerX = box.x + (box.width / 2);
+                    const centerY = box.y + (box.height / 2);
+
+                    // 3. Convert center coordinates to a percentage of the video dimensions
+                    const percentX = Math.abs(100 - (centerX / video.videoWidth) * 100);
+                    const percentY = Math.abs(100 - (centerY / video.videoHeight) * 100);
+                    
+                    const faceNum = Math.max(Math.round(percentX/60*9)-4,1);
+
+                    // 4. Update the DOM
+                    svgElement.style.left = `${percentX}%`;
+                } 
+                
+            }, 100); 
+        });
+
+        // Bootstrap the application
+        init();
+    </script>
+</body>
+</html>
