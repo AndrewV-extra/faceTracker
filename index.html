@@ -12,12 +12,11 @@
       body {
         margin: 0;
         height: 100vh;
-        overflow: hidden; /* Hides scrollbars if the SVG goes past the screen edges */
+        overflow: hidden; 
         color: black;
         font-family: sans-serif;
       }
 
-      /* --- NEW: Loading Screen Styles --- */
       #loading-screen {
         position: absolute;
         top: 0;
@@ -42,66 +41,44 @@
 
       .my-svg {
         position: absolute;
-        
-        /* Size: Takes up ~40% of the screen */
         width: 90vmin; 
         height: auto;
-
-        /* Center Vertically */
         top: 50%;
-        
-        /* Default Horizontal Center */
         left: 50%; 
-
-        /* Align the EXACT CENTER of the SVG to the top/left coordinates */
         transform: translate(-50%, -50%);
-
-        /* Optional: Adds a smooth gliding animation when the JS updates the position */
         transition: left 0.1s ease-out;
       }
 
-      /* Styling for the demo slider */
-      .controls {
-        position: absolute;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 10;
-        text-align: center;
-      }
-
-      video {
-          display: none;
+      /* FIX: Safari and Brave pause videos if they are display: none */
+      #webcam {
+          position: absolute;
+          top: -1000px;
+          opacity: 0;
+          pointer-events: none;
+          z-index: -1;
       }
     </style>
 </head>
 <body>
 
-    <!-- NEW: Loading Screen Overlay -->
-    <div id="loading-screen">Loading (local) Face Tracking Models...</div>
+    <div id="loading-screen">Loading AI Models...</div>
 
     <div class="svg-container">
-      <!-- The SVG (fixed a minor comma syntax issue here) -->
       <img class="my-svg" src="face.svg" alt="face">
     </div>
-    <!-- Hidden video element to capture webcam stream -->
+    
     <video id="webcam" autoplay muted playsinline></video>
 
     <script>
         const svgElement = document.querySelector('.my-svg');
         const video = document.getElementById('webcam');
-        const loadingScreen = document.getElementById('loading-screen'); // Grab the loading screen
+        const loadingScreen = document.getElementById('loading-screen'); 
 
-        // URL pointing to the pre-trained models hosted on jsDelivr 
-        // Note: For production apps, download these weights and host them on your own server.
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
 
         async function init() {
             try {
-                // Load the TinyFaceDetector (lightweight, fast, ideal for webcams)
                 await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-                
-                // Models are loaded, now update text and request webcam
                 loadingScreen.innerText = "Starting webcam...";
                 startVideo();
             } catch (error) {
@@ -114,6 +91,11 @@
             navigator.mediaDevices.getUserMedia({ video: true, audio: false })
                 .then(stream => {
                     video.srcObject = stream;
+                    
+                    // FIX: Explicitly play the video for Safari/Brave once the stream is attached
+                    video.onloadedmetadata = () => {
+                        video.play().catch(e => console.error("Playback failed", e));
+                    };
                 })
                 .catch(err => {
                     loadingScreen.innerText = "Webcam access denied or unavailable.";
@@ -121,19 +103,13 @@
                 });
         }
 
-        // Wait for the video to start playing before we begin detecting
         video.addEventListener('play', () => {
-            
-            // NEW: Hide the loading screen now that everything is ready!
             loadingScreen.style.display = 'none';
 
-            // Set up a loop to detect faces roughly 10 times a second
             setInterval(async () => {
-                // Detect all faces in the current video frame
                 const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
 
                 if (detections.length > 0) {
-                    // 1. Find the largest face by comparing bounding box areas
                     let largestFace = detections[0];
                     let maxArea = largestFace.box.width * largestFace.box.height;
 
@@ -145,25 +121,18 @@
                         }
                     }
 
-                    // 2. Calculate the center point of the largest face's bounding box
                     const box = largestFace.box;
                     const centerX = box.x + (box.width / 2);
                     const centerY = box.y + (box.height / 2);
 
-                    // 3. Convert center coordinates to a percentage of the video dimensions
                     const percentX = Math.abs(100 - (centerX / video.videoWidth) * 100);
                     const percentY = Math.abs(100 - (centerY / video.videoHeight) * 100);
                     
-                    const faceNum = Math.max(Math.round(percentX/60*9)-4,1);
-
-                    // 4. Update the DOM
                     svgElement.style.left = `${percentX}%`;
                 } 
-                
             }, 100); 
         });
 
-        // Bootstrap the application
         init();
     </script>
 </body>
