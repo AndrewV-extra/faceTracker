@@ -3,87 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Face Tracking (Coordinates Only)</title>
+    <title>P2 - Face Tracking POC</title>
     <!-- Load face-api.js from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-
-    <style>
-      /* Reset margins to prevent scrolling issues */
-      body {
-        margin: 0;
-        height: 100vh;
-        overflow: hidden; 
-        color: black;
-        font-family: sans-serif;
-      }
-
-      #loading-screen {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background-color: rgba(255, 255, 255, 0.95);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 9999;
-        font-size: 24px;
-        font-weight: bold;
-        color: #333;
-      }
-
-      .svg-container {
-        position: relative;
-        width: 100vw;
-        height: 100vh;
-      }
-
-      .my-svg {
-        position: absolute;
-        width: 90vmin; 
-        height: auto;
-        top: 50%;
-        left: 50%; 
-        transform: translate(-50%, -50%);
-        transition: left 0.1s ease-out;
-      }
-
-      /* FIX: Safari and Brave pause videos if they are display: none */
-      #webcam {
-          position: absolute;
-          top: -1000px;
-          opacity: 0;
-          pointer-events: none;
-          z-index: -1;
-      }
-    </style>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #000;
+    }
+    /*video {
+        display: none;
+    }*/
+    .container {
+      position: relative;
+      height: 100%;
+      width: 100%;
+    }
+    .svg-layer {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      /* optional: control size */
+      max-width: 100%;
+      max-height: 100%;
+    }
+    .midground{
+      width:99vw;
+      height:calc(99vw/1.8);
+      max-height:99vw;
+      z-index:0;
+      background-color: #fff;
+    }
+    .mask-layer {
+      width:100vw;
+      height:auto;
+      max-height:100vh;
+      z-index: 2;
+    }
+    .pupil-layer {
+      width:80vw;
+      height:auto;
+      max-height:100vh;
+      z-index: 1;
+      left: 50%;
+      bottom: 50%;
+      transition: left 0.15s ease-out, top 0.15s ease-out; ; 
+    }
+    .mouth-layer{
+      width:20vw;
+      height:auto;
+      max-height:100vh;
+      z-index: 3;
+      top: 80%;
+    }
+  </style>
 </head>
 <body>
 
-    <div id="loading-screen">Loading AI Models...</div>
-
-    <div class="svg-container">
-      <img class="my-svg" src="face.svg" alt="face">
-    </div>
-    
+  <div id="container" class="container">
+    <div class="svg-layer midground"></div>
+    <img id = "pupils" class="svg-layer pupil-layer" src="PupilL.svg" alt="SVG 2" />
+    <img class="svg-layer mask-layer" src="Mask.svg" alt="SVG 3" />
+    <img class="svg-layer mouth-layer" src="Mouth.svg" alt="SVG 1" />
+  </div>
+    <!-- Hidden video element to capture webcam stream -->
     <video id="webcam" autoplay muted playsinline></video>
 
     <script>
-        const svgElement = document.querySelector('.my-svg');
+        const svgElement = document.querySelector('.pupil-layer');
         const video = document.getElementById('webcam');
-        const loadingScreen = document.getElementById('loading-screen'); 
 
+        // URL pointing to the pre-trained models hosted on jsDelivr 
+        // Note: For production apps, download these weights and host them on your own server.
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
 
         async function init() {
             try {
+                // Load the TinyFaceDetector (lightweight, fast, ideal for webcams)
                 await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-                loadingScreen.innerText = "Starting webcam...";
+                
                 startVideo();
             } catch (error) {
-                loadingScreen.innerText = "Error loading AI models.";
-                console.error(error);
+                  1+1;
             }
         }
 
@@ -91,25 +94,22 @@
             navigator.mediaDevices.getUserMedia({ video: true, audio: false })
                 .then(stream => {
                     video.srcObject = stream;
-                    
-                    // FIX: Explicitly play the video for Safari/Brave once the stream is attached
-                    video.onloadedmetadata = () => {
-                        video.play().catch(e => console.error("Playback failed", e));
-                    };
                 })
                 .catch(err => {
-                    loadingScreen.innerText = "Webcam access denied or unavailable.";
-                    console.error(err);
+                    1+1;
                 });
         }
 
+        // Wait for the video to start playing before we begin detecting
         video.addEventListener('play', () => {
-            loadingScreen.style.display = 'none';
-
+            
+            // Set up a loop to detect faces roughly 10 times a second
             setInterval(async () => {
+                // Detect all faces in the current video frame
                 const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
 
                 if (detections.length > 0) {
+                    // 1. Find the largest face by comparing bounding box areas
                     let largestFace = detections[0];
                     let maxArea = largestFace.box.width * largestFace.box.height;
 
@@ -125,15 +125,51 @@
                     const centerX = box.x + (box.width / 2);
                     const centerY = box.y + (box.height / 2);
 
+                    // 3. Convert center coordinates to a percentage of the video dimensions
                     const percentX = Math.abs(100 - (centerX / video.videoWidth) * 100);
                     const percentY = Math.abs(100 - (centerY / video.videoHeight) * 100);
                     
-                    svgElement.style.left = `${percentX}%`;
+
+                    svgElement.style.left = `${50+(percentX-50)/5}%`;
+                    svgElement.style.top = `${50-(percentY-50)/5}%`;
+                    
+                    //Pupil switching logic. Don't like it, but here just in case.
+                    /*
+                    if (percentX < 50){
+                      svgElement.src = "PupilL.svg";
+                    } else {
+                      svgElement.src = "PupilR.svg";
+                    }
+                    */
                 } 
-            }, 100); 
+                
+            }, 50); 
         });
 
+        // Bootstrap the application
         init();
     </script>
+  <script>
+  /*Code modified from the w3schools example implementation*/
+  var elem = document.getElementById("container");
+
+  /* When the openFullscreen() function is executed, open the video in fullscreen.
+  Note that we must include prefixes for different browsers, as they don't support the requestFullscreen method yet */
+  function openFullscreen() {
+    //Isn't it lovely that every browser has to have a different fullscreen method?
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen();
+    } else if (elem.webkitRequestFullscreen) { /* Safari */
+      elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) { /* IE11 */
+      elem.msRequestFullscreen();
+    } else if (elem.mozRequestFullScreen) {
+      elem.mozRequestFullscreen();
+    }
+  }
+  document.addEventListener('click', function(event) {
+    openFullscreen();
+  });
+  </script>
 </body>
 </html>
