@@ -42,15 +42,16 @@
       max-height:100vh;
       z-index: 2;
     }
-    .pupil-layer {
-      width:80vw;
-      height:auto;
-      max-height:100vh;
+  .pupil-layer {
+      width: 80vw;
+      height: auto;
       z-index: 1;
       left: 50%;
-      bottom: 50%;
-      transition: left 0.15s ease-out, top 0.15s ease-out; ; 
-    }
+      top: 50%; 
+      /* Use CSS transform to do transformations on the GPU */
+      transform: translate(calc(-50% + var(--move-x, 0vw)), calc(-50% + var(--move-y, 0vh)));
+      transition: transform 0.15s ease-out; 
+  }
     .mouth-layer{
       width:20vw;
       height:auto;
@@ -75,13 +76,10 @@
         const svgElement = document.querySelector('.pupil-layer');
         const video = document.getElementById('webcam');
 
-        // URL pointing to the pre-trained models hosted on jsDelivr 
-        // Note: For production apps, download these weights and host them on your own server.
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
 
         async function init() {
             try {
-                // Load the TinyFaceDetector (lightweight, fast, ideal for webcams)
                 await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
                 
                 startVideo();
@@ -91,7 +89,7 @@
         }
 
         function startVideo() {
-            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+            navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } } , audio: false })
                 .then(stream => {
                     video.srcObject = stream;
                 })
@@ -99,14 +97,13 @@
                     1+1;
                 });
         }
-
-        // Wait for the video to start playing before we begin detecting
+        const detectorOptions = new faceapi.TinyFaceDetectorOptions();
         video.addEventListener('play', () => {
             
             // Set up a loop to detect faces roughly 10 times a second
-            setInterval(async () => {
+             async function trackFace() {
                 // Detect all faces in the current video frame
-                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
+                const detections = await faceapi.detectAllFaces(video, detectorOptions);
 
                 if (detections.length > 0) {
                     // 1. Find the largest face by comparing bounding box areas
@@ -125,14 +122,14 @@
                     const centerX = box.x + (box.width / 2);
                     const centerY = box.y + (box.height / 2);
 
-                    // 3. Convert center coordinates to a percentage of the video dimensions
                     const percentX = Math.abs(100 - (centerX / video.videoWidth) * 100);
                     const percentY = Math.abs(100 - (centerY / video.videoHeight) * 100);
-                    
+                    //Fancy transform logic
+                    const shiftX = (percentX - 50) / 5;
+                    const shiftY = -(percentY - 50) / 2; 
 
-                    svgElement.style.left = `${50+(percentX-50)/5}%`;
-                    svgElement.style.top = `${50-(percentY-50)/5}%`;
-                    
+                    svgElement.style.setProperty('--move-x', `${shiftX}vw`);
+                    svgElement.style.setProperty('--move-y', `${shiftY}vh`);
                     //Pupil switching logic. Don't like it, but here just in case.
                     /*
                     if (percentX < 50){
@@ -142,11 +139,12 @@
                     }
                     */
                 } 
-                
-            }, 100); 
+                trackFace();
+                //OooOooh recursion!
+            }
+            trackFace();
         });
 
-        // Bootstrap the application
         init();
     </script>
   <script>
