@@ -10,7 +10,7 @@
     html, body {
       height: 100%;
       margin: 0;
-      background: #000;
+      background: #000a3f;
     }
     video {
         display: none;
@@ -88,7 +88,7 @@
         }
 
         function startVideo() {
-            navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } } , audio: false })
+            navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 320 }, height: { ideal: 240 } } , audio: false })
                 .then(stream => {
                     video.srcObject = stream;
                 })
@@ -102,22 +102,10 @@
             // Set up a loop to detect faces roughly 10 times a second
              async function trackFace() {
                 // Detect all faces in the current video frame
-                const detections = await faceapi.detectAllFaces(video, detectorOptions);
+                const detection = await faceapi.detectSingleFace(video, detectorOptions);
 
-                if (detections.length > 0) {
-                    // 1. Find the largest face by comparing bounding box areas
-                    let largestFace = detections[0];
-                    let maxArea = largestFace.box.width * largestFace.box.height;
-
-                    for (let i = 1; i < detections.length; i++) {
-                        const area = detections[i].box.width * detections[i].box.height;
-                        if (area > maxArea) {
-                            maxArea = area;
-                            largestFace = detections[i];
-                        }
-                    }
-
-                    const box = largestFace.box;
+                if (detection) {
+                    const box = detection.box;
                     const centerX = box.x + (box.width / 2);
                     const centerY = box.y + (box.height / 2);
 
@@ -142,7 +130,7 @@
                     }
                     */
                 } 
-                trackFace();
+                requestAnimationFrame(trackFace);
                 //OooOooh recursion!
             }
             trackFace();
