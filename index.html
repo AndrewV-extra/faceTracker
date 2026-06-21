@@ -73,6 +73,7 @@
 
     <script>
         const svgElement = document.querySelector('.pupil-layer');
+        const midground = document.querySelector('.midground');
         const video = document.getElementById('webcam');
 
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
@@ -96,7 +97,7 @@
                     1+1;
                 });
         }
-        const detectorOptions = new faceapi.TinyFaceDetectorOptions();
+        const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.2 });
         video.addEventListener('play', () => {
             
             // Set up a loop to detect faces roughly 10 times a second
@@ -129,7 +130,10 @@
                       svgElement.src = "PupilR.svg";
                     }
                     */
-                } 
+                    midground.style.backgroundColor = "#fff";
+                } else {
+                    midground.style.backgroundColor = "#f00";
+                }
                 requestAnimationFrame(trackFace);
                 //OooOooh recursion!
             }
