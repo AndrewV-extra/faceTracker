@@ -48,9 +48,8 @@
       z-index: 1;
       left: 50%;
       top: 50%; 
+      transition: left 0.15s ease-out, top 0.15s ease-out;
       /* Use CSS transform to do transformations on the GPU */
-      transform: translate(calc(-50% + var(--move-x, 0vw)), calc(-50% + var(--move-y, 0vh)));
-      transition: transform 0.15s ease-out; 
   }
     .mouth-layer{
       height:20vh;
@@ -125,11 +124,15 @@
                     const percentX = Math.abs(100 - (centerX / video.videoWidth) * 100);
                     const percentY = Math.abs(100 - (centerY / video.videoHeight) * 100);
                     //Fancy transform logic
-                    const shiftX = (percentX - 50) / 5;
-                    const shiftY = -(percentY - 50) / 2; 
+                    const shiftX = (percentX - 50) / 5 + 50;
+                    const shiftY = -(percentY - 50) / 2 + 50; 
 
+                    svgElement.style.left = `${shiftX}%`;
+                    svgElement.style.top = `${shiftY}%`;
+                    /*
                     svgElement.style.setProperty('--move-x', `${shiftX}vw`);
                     svgElement.style.setProperty('--move-y', `${shiftY}vh`);
+                    */
                     //Pupil switching logic. Don't like it, but here just in case.
                     /*
                     if (percentX < 50){
