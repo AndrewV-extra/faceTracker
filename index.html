@@ -97,6 +97,12 @@
                     1+1;
                 });
         }
+        //Showing the webcam stream prevents some browsers (looking at you, safari) from automatically disabling the stream
+        const hasShowStream = new URLSearchParams(window.location.search).has('show-stream');
+
+        if (hasShowStream) {
+            video.style.display = 'unset';
+        }
         const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.2 });
         video.addEventListener('play', () => {
             
