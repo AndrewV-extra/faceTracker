@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Tracking (Coordinates Only)</title>
+    <!-- Load face-api.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+    <style>
+      /* Reset margins to prevent scrolling issues */
+      body {
+        margin: 0;
+        height: 100vh;
+        overflow: hidden; 
+        color: black;
+        font-family: sans-serif;
+      }
+
+      #loading-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(255, 255, 255, 0.95);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        font-size: 24px;
+        font-weight: bold;
+        color: #333;
+      }
+
+      .svg-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      .my-svg {
+        position: absolute;
+        width: 90vmin; 
+        height: auto;
+        top: 50%;
+        left: 50%; 
+        transform: translate(-50%, -50%);
+        transition: left 0.1s ease-out;
+      }
+
+      /* FIX: Safari and Brave pause videos if they are display: none */
+      #webcam {
+          position: absolute;
+          top: -1000px;
+          opacity: 0;
+          pointer-events: none;
+          z-index: -1;
+      }
+    </style>
+</head>
+<body>
+
+    <div id="loading-screen">Loading AI Models...</div>
+
+    <div class="svg-container">
+      <img class="my-svg" src="face.svg" alt="face">
+    </div>
+    
+    <video id="webcam" autoplay muted playsinline></video>
+
+    <script>
+        const svgElement = document.querySelector('.my-svg');
+        const video = document.getElementById('webcam');
+        const loadingScreen = document.getElementById('loading-screen'); 
+
+        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+
+        async function init() {
+            try {
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                loadingScreen.innerText = "Starting webcam...";
+                startVideo();
+            } catch (error) {
+                loadingScreen.innerText = "Error loading AI models.";
+                console.error(error);
+            }
+        }
+
+        function startVideo() {
+            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                .then(stream => {
+                    video.srcObject = stream;
+                    
+                    // FIX: Explicitly play the video for Safari/Brave once the stream is attached
+                    video.onloadedmetadata = () => {
+                        video.play().catch(e => console.error("Playback failed", e));
+                    };
+                })
+                .catch(err => {
+                    loadingScreen.innerText = "Webcam access denied or unavailable.";
+                    console.error(err);
+                });
+        }
+
+        video.addEventListener('play', () => {
+            loadingScreen.style.display = 'none';
+
+            setInterval(async () => {
+                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
+
+                if (detections.length > 0) {
+                    let largestFace = detections[0];
+                    let maxArea = largestFace.box.width * largestFace.box.height;
+
+                    for (let i = 1; i < detections.length; i++) {
+                        const area = detections[i].box.width * detections[i].box.height;
+                        if (area > maxArea) {
+                            maxArea = area;
+                            largestFace = detections[i];
+                        }
+                    }
+
+                    const box = largestFace.box;
+                    const centerX = box.x + (box.width / 2);
+                    const centerY = box.y + (box.height / 2);
+
+                    const percentX = Math.abs(100 - (centerX / video.videoWidth) * 100);
+                    const percentY = Math.abs(100 - (centerY / video.videoHeight) * 100);
+                    
+                    svgElement.style.left = `${percentX}%`;
+                } 
+            }, 100); 
+        });
+
+        init();
+    </script>
+</body>
+</html>
